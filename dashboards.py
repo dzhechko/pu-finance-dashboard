@@ -35,8 +35,20 @@ def show_dashboard_page():
         expenses_summary = data_loader.get_expenses_summary()
         budget_comparison = data_loader.get_budget_vs_actual()
         
-        if not all([net_worth_summary, income_summary, expenses_summary, budget_comparison]):
+        # Проверяем наличие данных более конкретно
+        if any(x is None for x in [net_worth_summary, income_summary, expenses_summary, budget_comparison]):
             st.warning("⚠️ Загрузите файл с данными в разделе Настройки")
+            return
+            
+        # Проверяем, что в каждом summary есть необходимые данные
+        if (not isinstance(net_worth_summary.get('history'), pd.DataFrame) or 
+            net_worth_summary['history'].empty):
+            st.warning("⚠️ Нет данных о чистой стоимости")
+            return
+            
+        if (income_summary['monthly_history'].empty or 
+            expenses_summary['monthly_history'].empty):
+            st.warning("⚠️ Нет данных о доходах и расходах")
             return
         
         # Основные метрики
@@ -428,92 +440,101 @@ def show_detailed_income_expenses_chart(income_data, expenses_data):
     """Детальный график доходов и расходов"""
     st.subheader("📊 Детальный анализ доходов и расходов")
     
-    # Создаем DataFrame для графика
-    df = pd.DataFrame({
-        'Доходы': income_data,
-        'Расходы': expenses_data
-    }).reset_index()
-    df['Month'] = df['Month'].astype(str)
-    
-    # Добавляем фильтры периода
-    col1, col2 = st.columns(2)
-    with col1:
-        start_date = pd.Period(st.selectbox(
-            "Начальный месяц",
-            options=df['Month'].unique(),
-            index=0
+    try:
+        # Создаем DataFrame для графика
+        df = pd.DataFrame({
+            'Доходы': income_data,
+            'Расходы': expenses_data
+        }).reset_index()
+        
+        # Преобразуем Period в строку для корректного отображения
+        df['Month'] = df['Month'].astype(str)
+        
+        # Добавляем фильтры периода
+        months = df['Month'].unique().tolist()
+        col1, col2 = st.columns(2)
+        with col1:
+            start_month = st.selectbox(
+                "Начальный месяц",
+                options=months,
+                index=0
+            )
+        with col2:
+            end_month = st.selectbox(
+                "Конечный месяц",
+                options=months,
+                index=len(months)-1
+            )
+        
+        # Фильтруем данные
+        start_idx = months.index(start_month)
+        end_idx = months.index(end_month)
+        filtered_df = df.iloc[start_idx:end_idx+1]
+        
+        # Создаем график
+        fig = go.Figure()
+        
+        # Добавляем линии доходов и расходов
+        fig.add_trace(go.Scatter(
+            x=filtered_df['Month'],
+            y=filtered_df['Доходы'],
+            name='Доходы',
+            line=dict(color=CHART_COLORS['income'], width=3)
         ))
-    with col2:
-        end_date = pd.Period(st.selectbox(
-            "Конечный месяц",
-            options=df['Month'].unique(),
-            index=len(df['Month'])-1
+        
+        fig.add_trace(go.Scatter(
+            x=filtered_df['Month'],
+            y=filtered_df['Расходы'],
+            name='Расходы',
+            line=dict(color=CHART_COLORS['expenses'], width=3)
         ))
-    
-    # Фильтруем данные
-    mask = (pd.Period(df['Month']) >= start_date) & (pd.Period(df['Month']) <= end_date)
-    filtered_df = df[mask]
-    
-    # Создаем график
-    fig = go.Figure()
-    
-    # Добавляем линии доходов и расходов
-    fig.add_trace(go.Scatter(
-        x=filtered_df['Month'],
-        y=filtered_df['Доходы'],
-        name='Доходы',
-        line=dict(color=CHART_COLORS['income'], width=3)
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=filtered_df['Month'],
-        y=filtered_df['Расходы'],
-        name='Расходы',
-        line=dict(color=CHART_COLORS['expenses'], width=3)
-    ))
-    
-    # Добавляем область между доходами и расходами
-    fig.add_trace(go.Scatter(
-        x=filtered_df['Month'],
-        y=filtered_df['Доходы'] - filtered_df['Расходы'],
-        name='Баланс',
-        fill='tonexty',
-        line=dict(color='rgba(0,100,0,0.3)')
-    ))
-    
-    fig.update_layout(
-        height=500,
-        hovermode='x unified',
-        showlegend=True,
-        yaxis_title="Сумма",
-        xaxis_title="Месяц"
-    )
-    
-    selected_point = st.plotly_chart(fig, use_container_width=True)
-    
-    # Добавляем статистику
-    st.subheader("📈 Статистика")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        avg_income = filtered_df['Доходы'].mean()
-        avg_expenses = filtered_df['Расходы'].mean()
-        st.metric(
-            "Средний месячный доход",
-            format_currency(avg_income),
-            f"{((filtered_df['Доходы'].iloc[-1] / avg_income - 1) * 100):+.1f}% к среднему"
+        
+        # Добавляем область между доходами и расходами
+        fig.add_trace(go.Scatter(
+            x=filtered_df['Month'],
+            y=filtered_df['Доходы'] - filtered_df['Расходы'],
+            name='Баланс',
+            fill='tonexty',
+            line=dict(color='rgba(0,100,0,0.3)')
+        ))
+        
+        fig.update_layout(
+            height=500,
+            hovermode='x unified',
+            showlegend=True,
+            yaxis_title="Сумма",
+            xaxis_title="Месяц"
         )
-    
-    with col2:
-        st.metric(
-            "Средние месячные расходы",
-            format_currency(avg_expenses),
-            f"{((filtered_df['Расходы'].iloc[-1] / avg_expenses - 1) * 100):+.1f}% к среднему"
-        )
-    
-    with col3:
-        savings_rate = ((filtered_df['Доходы'] - filtered_df['Расходы']) / filtered_df['Доходы'] * 100).mean()
-        st.metric("Средняя норма сбережений", f"{savings_rate:.1f}%")
+        
+        selected_point = st.plotly_chart(fig, use_container_width=True)
+        
+        # Добавляем статистику
+        st.subheader("📈 Статистика")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            avg_income = filtered_df['Доходы'].mean()
+            avg_expenses = filtered_df['Расходы'].mean()
+            st.metric(
+                "Средний месячный доход",
+                format_currency(avg_income),
+                f"{((filtered_df['Доходы'].iloc[-1] / avg_income - 1) * 100):+.1f}% к среднему"
+            )
+        
+        with col2:
+            st.metric(
+                "Средние месячные расходы",
+                format_currency(avg_expenses),
+                f"{((filtered_df['Расходы'].iloc[-1] / avg_expenses - 1) * 100):+.1f}% к среднему"
+            )
+        
+        with col3:
+            savings_rate = ((filtered_df['Доходы'] - filtered_df['Расходы']) / filtered_df['Доходы'] * 100).mean()
+            st.metric("Средняя норма сбережений", f"{savings_rate:.1f}%")
+
+    except Exception as e:
+        log_error(f"Ошибка при отображении страницы доходов и расходов: {str(e)}")
+        st.error("Произошла ошибка при загрузке данных")
 
 def show_income_sources_chart(income_by_source):
     """График источников дохода"""
@@ -587,10 +608,14 @@ def show_expense_breakdown_page():
     
     try:
         expenses_data = data_loader.get_expenses_summary()
-        if not expenses_data:
+        if expenses_data is None:
             st.warning("⚠️ Нет данных о расходах")
             return
-        
+            
+        if expenses_data['by_category'].empty:
+            st.warning("⚠️ Нет данных о категориях расходов")
+            return
+            
         # Основные метрики
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -606,14 +631,21 @@ def show_expense_breakdown_page():
                 suffix=CURRENCY_SYMBOL
             )
         with col3:
-            current_month = expenses_data['monthly_history'].iloc[-1]
-            prev_month = expenses_data['monthly_history'].iloc[-2]
-            show_metric_card(
-                "Расходы в этом месяце",
-                current_month,
-                prev_month,
-                suffix=CURRENCY_SYMBOL
-            )
+            if len(expenses_data['monthly_history']) >= 2:
+                current_month = expenses_data['monthly_history'].iloc[-1]
+                prev_month = expenses_data['monthly_history'].iloc[-2]
+                show_metric_card(
+                    "Расходы в этом месяце",
+                    current_month,
+                    prev_month,
+                    suffix=CURRENCY_SYMBOL
+                )
+            else:
+                show_metric_card(
+                    "Расходы в этом месяце",
+                    expenses_data['monthly_history'].iloc[-1],
+                    suffix=CURRENCY_SYMBOL
+                )
         
         # Детальные графики
         show_expense_categories_chart(expenses_data['by_category'])

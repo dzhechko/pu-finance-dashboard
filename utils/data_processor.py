@@ -48,18 +48,25 @@ def get_trend_analysis(data):
 def categorize_expenses(expenses_df, threshold=0.05):
     """Категоризация расходов с группировкой мелких категорий"""
     try:
-        total_expenses = expenses_df['Amount'].sum()
-        category_sums = expenses_df.groupby('Category')['Amount'].sum()
-        
+        if expenses_df is None or len(expenses_df) == 0:
+            return pd.Series()
+            
+        total_expenses = expenses_df.sum()
+        if total_expenses == 0:
+            return pd.Series()
+            
         # Определение основных и мелких категорий
-        main_categories = category_sums[category_sums/total_expenses >= threshold]
-        small_categories = category_sums[category_sums/total_expenses < threshold]
+        main_categories = expenses_df[expenses_df/total_expenses >= threshold]
+        small_categories = expenses_df[expenses_df/total_expenses < threshold]
         
         # Объединение мелких категорий
         if not small_categories.empty:
-            main_categories['Другое'] = small_categories.sum()
-            
+            result = main_categories.copy()
+            result['Другое'] = small_categories.sum()
+            return result
+        
         return main_categories
+        
     except Exception as e:
         log_error(f"Ошибка при категоризации расходов: {str(e)}")
-        return None 
+        return pd.Series() 

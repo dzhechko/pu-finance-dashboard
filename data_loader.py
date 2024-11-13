@@ -150,11 +150,17 @@ class DataLoader:
     def get_expenses_summary(self, period='month'):
         """Получение сводки по расходам"""
         df = self.load_data('expenses')
-        if df is None:
-            return None
+        if df is None or df.empty:
+            return {
+                'total_expenses': 0,
+                'average_monthly': 0,
+                'by_category': pd.Series(),
+                'monthly_history': pd.Series()
+            }
         
         df['Month'] = df['Date'].dt.to_period('M')
         monthly_expenses = df.groupby('Month')['Amount'].sum()
+        
         return {
             'total_expenses': df['Amount'].sum(),
             'average_monthly': monthly_expenses.mean(),
