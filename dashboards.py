@@ -226,7 +226,7 @@ def show_mini_net_worth_chart(df):
     
     # Добавляем статический анализ последних данных
     latest = df.iloc[-1]
-        st.info(f"""
+    st.info(f"""
     **Последние данные ({latest['Date'].strftime('%d.%m.%Y')}):**
     - Активы: {format_currency(latest['Assets'])}
     - Обязательства: {format_currency(latest['Liabilities'])}
