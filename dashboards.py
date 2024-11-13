@@ -268,21 +268,22 @@ def show_mini_income_expenses_chart(income_data, expenses_data):
         margin=dict(l=0, r=0, t=30, b=0)
     )
     
-    # Добавляем интерактивность
-    selected_point = st.plotly_chart(fig, use_container_width=True)
+    # Отображаем график без сохранения результата
+    st.plotly_chart(fig, use_container_width=True)
     
-    if selected_point:
-        month = selected_point['points'][0]['x']
-        row = df[df['Month'] == month].iloc[0]
-        balance = row['Доходы'] - row['Расходы']
-        
-        st.info(f"""
-        **Детали за {month}:**
-        - Доходы: {format_currency(row['Доходы'])}
-        - Расходы: {format_currency(row['Расходы'])}
-        - Баланс: {format_currency(balance)}
-        - Экономия: {(balance/row['Доходы']*100):.1f}% от дохода
-        """)
+    # Отображаем статистику последних данных
+    latest_income = df['Доходы'].iloc[-1]
+    latest_expenses = df['Расходы'].iloc[-1]
+    latest_month = df['Month'].iloc[-1]
+    balance = latest_income - latest_expenses
+    
+    st.info(f"""
+    **Последние данные ({latest_month}):**
+    - Доходы: {format_currency(latest_income)}
+    - Расходы: {format_currency(latest_expenses)}
+    - Баланс: {format_currency(balance)}
+    - Экономия: {(balance/latest_income*100):.1f}% от дохода
+    """)
 
 def show_mini_expense_breakdown(expenses_by_category):
     """Мини-график разбивки расходов"""
@@ -304,19 +305,20 @@ def show_mini_expense_breakdown(expenses_by_category):
         margin=dict(l=0, r=0, t=30, b=0)
     )
     
-    # Добавляем интерактивность
-    selected_point = st.plotly_chart(fig, use_container_width=True)
+    # Отображаем график без сохранения результата
+    st.plotly_chart(fig, use_container_width=True)
     
-    if selected_point:
-        category = selected_point['points'][0]['label']
-        value = selected_point['points'][0]['value']
-        percentage = selected_point['points'][0]['percent']
-        
-        st.info(f"""
-        **Детали категории "{category}":**
-        - Сумма: {format_currency(value)}
-        - Доля в общих расходах: {percentage:.1f}%
-        """)
+    # Отображаем статистику по основным категориям
+    main_category = main_categories.index[0]
+    main_value = main_categories.iloc[0]
+    percentage = (main_value / main_categories.sum() * 100)
+    
+    st.info(f"""
+    **Основная категория расходов:**
+    - Категория: "{main_category}"
+    - Сумма: {format_currency(main_value)}
+    - Доля в общих расходах: {percentage:.1f}%
+    """)
 
 def show_mini_budget_comparison(budget_data):
     """Мини-график сравнения бюджета с фактическими расходами"""
@@ -534,7 +536,7 @@ def show_detailed_income_expenses_chart(income_data, expenses_data):
 
     except Exception as e:
         log_error(f"Ошибка при отображении страницы доходов и расходов: {str(e)}")
-        st.error("Произошла ошибка при загрузке данных")
+        st.error("Произошла ошибка при загру��ке данных")
 
 def show_income_sources_chart(income_by_source):
     """График источников дохода"""
@@ -706,7 +708,7 @@ def show_detailed_budget_comparison(budget_data):
     """Детальное сравнение бюджета с фактическими расходами"""
     st.subheader("📊 Сравнение бюджета и фактических расходов")
     
-    # Создаем столбчатую диаграмму
+    # Создаем столбчатую даграмму
     fig = go.Figure()
     
     fig.add_trace(go.Bar(
@@ -835,4 +837,4 @@ def show_detailed_expense_trends(monthly_expenses):
         log_error(f"Ошибка при отображении трендов расходов: {str(e)}")
         st.error("Не удалось отобразить тренды расходов")
 
-# ... продолжение следует ... 
+# ... продожение следует ... 
