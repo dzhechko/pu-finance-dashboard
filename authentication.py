@@ -57,6 +57,10 @@ def register_user():
     """Форма регистрации нового пользователя"""
     st.subheader("📝 Регистрация нового пользователя")
     
+    # Сбрасываем флаг успешной регистрации
+    if 'registration_successful' not in st.session_state:
+        st.session_state.registration_successful = False
+    
     with st.form("registration_form"):
         new_username = st.text_input("Имя пользователя")
         new_name = st.text_input("Полное имя")
@@ -67,42 +71,55 @@ def register_user():
         submitted = st.form_submit_button("Зарегистрироваться")
         
         if submitted:
-            credentials = load_credentials()
-            
-            # Проверка валидности данных
-            username_valid, username_msg = is_valid_username(new_username)
-            if not username_valid:
-                st.error(username_msg)
-                return
+            try:
+                credentials = load_credentials()
                 
-            if new_username in credentials["usernames"]:
-                st.error("Пользователь с таким именем уже существует")
-                return
+                # Проверка валидности данных
+                username_valid, username_msg = is_valid_username(new_username)
+                if not username_valid:
+                    st.error(username_msg)
+                    return
                 
-            password_valid, password_msg = is_valid_password(new_password)
-            if not password_valid:
-                st.error(password_msg)
-                return
+                if new_username in credentials["usernames"]:
+                    st.error("Пользователь с таким именем уже существует")
+                    return
                 
-            if new_password != confirm_password:
-                st.error("Пароли не совпадают")
-                return
-            
-            # Сохранение нового пользователя
-            hashed_password = stauth.Hasher([new_password]).generate()[0]
-            credentials["usernames"][new_username] = {
-                "name": new_name,
-                "password": hashed_password,
-                "email": new_email
-            }
-            
-            save_credentials(credentials)
-            st.success("Регистрация успешно завершена! Теперь вы можете войти в систему.")
-            log_info(f"Зарегистрирован новый пользователь: {new_username}")
+                password_valid, password_msg = is_valid_password(new_password)
+                if not password_valid:
+                    st.error(password_msg)
+                    return
+                
+                if new_password != confirm_password:
+                    st.error("Пароли не совпадают")
+                    return
+                
+                # Сохранение нового пользователя
+                hashed_password = stauth.Hasher([new_password]).generate()[0]
+                credentials["usernames"][new_username] = {
+                    "name": new_name,
+                    "password": hashed_password,
+                    "email": new_email
+                }
+                
+                save_credentials(credentials)
+                st.success("Регистрация успешно завершена! Теперь вы можете войти в систему.")
+                log_info(f"Зарегистрирован новый пользователь: {new_username}")
+                
+                # Устанавливаем флаг успешной регистрации
+                st.session_state.registration_successful = True
+                st.rerun()
+                
+            except Exception as e:
+                log_error(f"Ошибка при регистрации: {str(e)}")
+                st.error("Произошла ошибка при регистрации. Попробуйте позже.")
 
 def reset_password():
     """Форма восстановления пароля"""
     st.subheader("🔑 Восстановление пароля")
+    
+    # Сбрасываем флаг успешного сброса пароля
+    if 'password_reset_successful' not in st.session_state:
+        st.session_state.password_reset_successful = False
     
     with st.form("reset_password_form"):
         username = st.text_input("Имя пользователя")
@@ -113,48 +130,92 @@ def reset_password():
         submitted = st.form_submit_button("Сбросить пароль")
         
         if submitted:
-            credentials = load_credentials()
-            
-            if username not in credentials["usernames"]:
-                st.error("Пользователь не найден")
-                return
+            try:
+                credentials = load_credentials()
                 
-            if credentials["usernames"][username]["email"] != email:
-                st.error("Указанный email не соответствует учетной записи")
-                return
+                if username not in credentials["usernames"]:
+                    st.error("Пользователь не найден")
+                    return
                 
-            password_valid, password_msg = is_valid_password(new_password)
-            if not password_valid:
-                st.error(password_msg)
-                return
+                if credentials["usernames"][username]["email"] != email:
+                    st.error("Указанный email не соответствует учетной записи")
+                    return
                 
-            if new_password != confirm_password:
-                st.error("Пароли не совпадают")
-                return
-            
-            # Обновление пароля
-            hashed_password = stauth.Hasher([new_password]).generate()[0]
-            credentials["usernames"][username]["password"] = hashed_password
-            
-            save_credentials(credentials)
-            st.success("Пароль успешно обновлен! Теперь вы можете войти с новым паролем.")
-            log_info(f"Пароль обновлен для пользователя: {username}")
+                password_valid, password_msg = is_valid_password(new_password)
+                if not password_valid:
+                    st.error(password_msg)
+                    return
+                
+                if new_password != confirm_password:
+                    st.error("Пароли не совпадают")
+                    return
+                
+                # Обновление пароля
+                hashed_password = stauth.Hasher([new_password]).generate()[0]
+                credentials["usernames"][username]["password"] = hashed_password
+                
+                save_credentials(credentials)
+                st.success("Пароль успешно обновлен! Теперь вы можете войти с новым паролем.")
+                log_info(f"Пароль обновлен для пользователя: {username}")
+                
+                # Устанавливаем флаг успешного сброса пароля
+                st.session_state.password_reset_successful = True
+                st.rerun()
+                
+            except Exception as e:
+                log_error(f"Ошибка при сбросе пароля: {str(e)}")
+                st.error("Произошла ошибка при сбросе пароля. Попробуйте позже.")
 
 def show_auth_page():
     """Отображение страницы аутентификации"""
     st.title("🔐 Авторизация")
     
+    # Добавляем состояние для отслеживания активной вкладки
+    if 'auth_tab' not in st.session_state:
+        st.session_state.auth_tab = "Вход"
+    
+    # Создаем вкладки
     tab1, tab2, tab3 = st.tabs(["Вход", "Регистрация", "Восстановление пароля"])
     
+    authenticator = None
+    name = None
+    
     with tab1:
-        authenticator, name = authenticate_users()
-        return authenticator, name
+        if st.session_state.auth_tab == "Вход":
+            authenticator, name = authenticate_users()
     
     with tab2:
-        register_user()
+        if st.session_state.auth_tab == "Регистрация":
+            register_user()
+            # После успешной регистрации переключаемся на вкладку входа
+            if st.session_state.get('registration_successful'):
+                st.session_state.auth_tab = "Вход"
+                st.rerun()
     
     with tab3:
-        reset_password()
+        if st.session_state.auth_tab == "Восстановление пароля":
+            reset_password()
+            # После успешного сброса пароля переключаемся на вкладку входа
+            if st.session_state.get('password_reset_successful'):
+                st.session_state.auth_tab = "Вход"
+                st.rerun()
+    
+    # Добавляем кнопки для переключения между вкладками
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("Войти", key="login_tab"):
+            st.session_state.auth_tab = "Вход"
+            st.rerun()
+    with col2:
+        if st.button("Зарегистрироваться", key="register_tab"):
+            st.session_state.auth_tab = "Регистрация"
+            st.rerun()
+    with col3:
+        if st.button("Забыли пароль?", key="reset_tab"):
+            st.session_state.auth_tab = "Восстановление пароля"
+            st.rerun()
+    
+    return authenticator, name
 
 def authenticate_users():
     """Аутентификация пользователей"""
