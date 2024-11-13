@@ -96,6 +96,7 @@ Develop a comprehensive and interactive Streamlit-based dashboard for personal f
   - Users can upload an Excel file containing financial data.
   - Validation to ensure correct file format and data integrity.
 
+Exel-file consists of the following data sheets
 - **Data Sheets:**
   - **Net Worth Table:**
     - Columns: Date, Assets, Liabilities
