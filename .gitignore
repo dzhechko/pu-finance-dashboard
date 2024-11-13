@@ -40,3 +40,13 @@ data/*.xlsx
 
 # Environment variables
 .env
+
+# Environment
+.env.local
+.env.*.local
+
+# Railway specific
+.railway/
+
+# Streamlit
+.streamlit/secrets.toml

@@ -4,15 +4,19 @@ from config import DEBUG, AUTH, MENU_OPTIONS
 import authentication
 import dashboards
 import data_loader
+import os
 
 def main():
+    # Get port from Railway environment
+    port = int(os.getenv("PORT", 8501))
+    
     st.set_page_config(
         page_title="Личные финансы",
         page_icon="💰",
         layout="wide"
     )
     
-    log_info("Запуск приложения")
+    log_info(f"Запуск приложения на порту {port}")
     
     # Инициализация состояния сессии
     if 'authenticated' not in st.session_state:
