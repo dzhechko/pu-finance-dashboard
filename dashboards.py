@@ -35,19 +35,21 @@ def show_dashboard_page():
         expenses_summary = data_loader.get_expenses_summary()
         budget_comparison = data_loader.get_budget_vs_actual()
         
-        # Проверяем наличие данных более конкретно
-        if any(x is None for x in [net_worth_summary, income_summary, expenses_summary, budget_comparison]):
+        # Проверяем наличие данных
+        if any(x is None for x in [net_worth_summary, income_summary, expenses_summary]):
             st.warning("⚠️ Загрузите файл с данными в разделе Настройки")
             return
             
-        # Проверяем, что в каждом summary есть необходимые данные
-        if (not isinstance(net_worth_summary.get('history'), pd.DataFrame) or 
-            net_worth_summary['history'].empty):
+        # Проверяем наличие необходимых данных в каждом summary
+        if not isinstance(net_worth_summary.get('history'), pd.DataFrame):
             st.warning("⚠️ Нет данных о чистой стоимости")
             return
             
-        if (income_summary['monthly_history'].empty or 
-            expenses_summary['monthly_history'].empty):
+        if net_worth_summary['history'].empty:
+            st.warning("⚠️ Нет данных о чистой стоимости")
+            return
+            
+        if income_summary['monthly_history'].empty or expenses_summary['monthly_history'].empty:
             st.warning("⚠️ Нет данных о доходах и расходах")
             return
         
@@ -130,7 +132,7 @@ def show_net_worth_page():
         show_detailed_net_worth_chart(net_worth_data['history'])
         
     except Exception as e:
-        log_error(f"Ошибка при отображении страницы чистой стоимости: {str(e)}")
+        log_error(f"Ошибка при отбражении страницы чистой стоимости: {str(e)}")
         st.error("Произошла ошибка при загрузке данных")
 
 def show_income_expenses_page():
@@ -219,18 +221,16 @@ def show_mini_net_worth_chart(df):
         margin=dict(l=0, r=0, t=30, b=0)
     )
     
-    # Добавляем интерактивность
-    selected_point = st.plotly_chart(fig, use_container_width=True)
+    # Отображаем график без сохранения результата
+    st.plotly_chart(fig, use_container_width=True)
     
-    if selected_point:
-        date = selected_point['points'][0]['x']
-        row = df[df['Date'] == date].iloc[0]
-        
+    # Добавляем статический анализ последних данных
+    latest = df.iloc[-1]
         st.info(f"""
-        **Детали на {date.strftime('%d.%m.%Y')}:**
-        - Активы: {format_currency(row['Assets'])}
-        - Обязательства: {format_currency(row['Liabilities'])}
-        - Чистая стоимость: {format_currency(row['NetWorth'])}
+    **Последние данные ({latest['Date'].strftime('%d.%m.%Y')}):**
+    - Активы: {format_currency(latest['Assets'])}
+    - Обязательства: {format_currency(latest['Liabilities'])}
+    - Чистая стоимость: {format_currency(latest['NetWorth'])}
         """)
 
 def show_mini_income_expenses_chart(income_data, expenses_data):
@@ -353,7 +353,7 @@ def show_mini_budget_comparison(budget_data):
         category = selected_point['points'][0]['x']
         row = budget_data.loc[category]
         
-        status = "✅ В рамках бюджета" if row['Actual'] <= row['Budget'] else "❌ Превышение бюджета"
+        status = "✅ В рамках бюджета" if row['Actual'] <= row['Budget'] else "❌ превышение бюджета"
         
         st.info(f"""
         **Детали категории "{category}":**
@@ -781,5 +781,58 @@ def show_budget_variance_analysis(budget_data):
         - {under_budget.index[0]}: {under_budget['VariancePercent'].iloc[0]:.1f}%
         - {under_budget.index[1] if len(under_budget) > 1 else 'Нет'}: {under_budget['VariancePercent'].iloc[1]:.1f}% (если есть)
         """)
+
+def show_detailed_expense_trends(monthly_expenses):
+    """График трендов расходов по месяцам"""
+    try:
+        # Создаем DataFrame для графика
+        df = monthly_expenses.reset_index()
+        df['Month'] = df['Month'].astype(str)
+        
+        fig = go.Figure()
+        
+        # Добавляем линию расходов
+        fig.add_trace(go.Scatter(
+            x=df['Month'],
+            y=df['Amount'],
+            name='Расходы',
+            line=dict(color=CHART_COLORS['expenses'], width=2)
+        ))
+        
+        # Добавляем скользящее среднее
+        rolling_mean = df['Amount'].rolling(window=3, min_periods=1).mean()
+        fig.add_trace(go.Scatter(
+            x=df['Month'],
+            y=rolling_mean,
+            name='Тренд (3 месяца)',
+            line=dict(color='rgba(255, 165, 0, 0.7)', width=2, dash='dash')
+        ))
+        
+        fig.update_layout(
+            height=400,
+            hovermode='x unified',
+            showlegend=True,
+            yaxis_title="Сумма",
+            xaxis_title="Месяц"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Добавляем анализ тренда
+        if len(df) >= 2:
+            current = df['Amount'].iloc[-1]
+            previous = df['Amount'].iloc[-2]
+            change = ((current - previous) / previous * 100)
+            
+            if change > 0:
+                st.warning(f"⚠️ Расходы выросли на {abs(change):.1f}% по сравнению с прошлым месяцем")
+            elif change < 0:
+                st.success(f"✅ Расходы снизились на {abs(change):.1f}% по сравнению с прошлым месяцем")
+            else:
+                st.info("ℹ️ Расходы остались на том же уровне")
+                
+    except Exception as e:
+        log_error(f"Ошибка при отображении трендов расходов: {str(e)}")
+        st.error("Не удалось отобразить тренды расходов")
 
 # ... продолжение следует ... 
