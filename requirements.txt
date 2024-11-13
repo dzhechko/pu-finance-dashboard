@@ -5,4 +5,5 @@ python-dotenv==1.0.0
 loguru==0.7.2
 pandas==2.1.4
 plotly==5.18.0
-openpyxl==3.1.2 
+openpyxl==3.1.2
+watchdog==3.0.0 

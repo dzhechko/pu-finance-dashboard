@@ -50,3 +50,9 @@ data/*.xlsx
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Исключаем содержимое директорий, но сохраняем сами директории
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
